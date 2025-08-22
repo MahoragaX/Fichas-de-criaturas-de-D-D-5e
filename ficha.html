@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criador de Fichas de Criatura D&D 5e</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Biblioteca para ler PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f0f0;
+        }
+        .stat-block {
+            font-family: 'Lora', serif;
+            background-color: #fdf9f2;
+            border: 2px solid #e0e0e0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-block h1 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1.75rem;
+            color: #8a0303;
+            letter-spacing: 1px;
+        }
+        .stat-block h2 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+            border-bottom: 2px solid #8a0303;
+            padding-bottom: 2px;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #8a0303;
+        }
+        .stat-block .tapered-rule {
+            height: 5px;
+            background: linear-gradient(to right, #e69a28, #c86a26, #8a0303, #c86a26, #e69a28);
+            border: 0;
+            margin: 0.5rem 0;
+        }
+        .stat-block p, .stat-block li {
+            line-height: 1.4;
+        }
+        .stat-block strong {
+            font-weight: 700;
+            color: #333;
+        }
+        .stat-block em {
+            font-style: italic;
+        }
+        .form-section {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+        .form-section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .dynamic-list-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.5rem;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+        .dynamic-list-item-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .preset-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+        }
+        .preset-buttons button, .tag-filter-btn {
+            font-size: 0.75rem;
+            background-color: #e5e7eb;
+            color: #374151;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .preset-buttons button:hover, .tag-filter-btn:hover {
+            background-color: #d1d5db;
+        }
+        .tag-filter-btn.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .skill-item {
+            display: grid;
+            grid-template-columns: 1fr 80px 40px;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #2d3748;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+            transform: translateY(20px);
+            z-index: 1000;
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .modal-close-btn {
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .modal-body {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+        .modal-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .modal-tab.active {
+            border-color: #4f46e5;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .library-item {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+        }
+        .library-item-content {
+            cursor: pointer;
+        }
+        .library-item-content strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        .library-item-content p {
+            font-size: 0.875rem;
+            color: #4b5563;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4f46e5;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 lg:p-8">
+    <div id="toast"></div>
+
+    <div class="max-w-screen-2xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Criador de Fichas de Criaturas (Homebrew)</h1>
+            <p class="text-lg text-gray-600">Crie, salve e exporte suas criaturas para D&D 5e</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Coluna do Editor -->
+            <div id="editor-column">
+                <form id="creature-form" class="space-y-6">
+                    <!-- Informações Básicas -->
+                    <div class="form-section">
+                        <h3>Informações Básicas</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label for="name">Nome</label><input type="text" id="name" name="name" required></div>
+                            <div>
+                                <label for="size">Tamanho</label>
+                                <select id="size" name="size">
+                                    <option value="Miúdo">Miúdo</option>
+                                    <option value="Pequeno">Pequeno</option>
+                                    <option value="Médio" selected>Médio</option>
+                                    <option value="Grande">Grande</option>
+                                    <option value="Enorme">Enorme</option>
+                                    <option value="Imenso">Imenso</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="type">Tipo</label>
+                                <select id="type" name="type">
+                                    <option value="Aberração">Aberração</option>
+                                    <option value="Besta">Besta</option>
+                                    <option value="Celestial">Celestial</option>
+                                    <option value="Constructo">Constructo</option>
+                                    <option value="Corruptor">Corruptor</option>
+                                    <option value="Dragão">Dragão</option>
+                                    <option value="Elemental">Elemental</option>
+                                    <option value="Fada">Fada</option>
+                                    <option value="Gigante">Gigante</option>
+                                    <option value="Humanoide" selected>Humanoide</option>
+                                    <option value="Limo">Limo</option>
+                                    <option value="Monstruosidade">Monstruosidade</option>
+                                    <option value="Morto-vivo">Morto-vivo</option>
+                                    <option value="Planta e Fungo">Planta e Fungo</option>
+                                </select>
+                            </div>
+                            <div><label for="alignment">Alinhamento</label><input type="text" id="alignment" name="alignment" placeholder="Ex: Caótico e bom"></div>
+                            <div class="md:col-span-2">
+                                <label for="tags">Tags (separadas por vírgula)</label>
+                                <input type="text" id="tags" name="tags" placeholder="Ex: floresta, humanóide, fraco">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Atributos de Combate -->
+                    <div class="form-section">
+                        <h3>Atributos de Combate</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label for="ac">Classe de Armadura (CA)</label><input type="text" id="ac" name="ac" placeholder="Ex: 15 (armadura de placas)"></div>
+                            <div><label for="hp">Pontos de Vida (PV)</label><input type="text" id="hp" name="hp" placeholder="Ex: 52 (8d8 + 16)"></div>
+                            <div>
+                                <label for="speed">Velocidade</label>
+                                <input type="text" id="speed" name="speed" placeholder="Ex: 9 m, voo 18 m">
+                                <div id="speed-presets" class="preset-buttons"></div>
+                            </div>
+                            <div>
+                                <label for="cr">Nível de Desafio (ND)</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="cr" name="cr" placeholder="Ex: 5" class="flex-grow">
+                                    <span id="xp-display" class="bg-gray-200 px-3 py-1.5 rounded-md text-sm whitespace-nowrap"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Habilidades -->
+                    <div class="form-section">
+                        <h3>Habilidades</h3>
+                        <div class="grid grid-cols-3 md:grid-cols-6 gap-x-2 gap-y-4 text-center">
+                            <div class="ability-score">
+                                <label for="str">FOR</label>
+                                <input type="number" id="str" name="str" value="10" class="text-center">
+                                <span id="str-mod" class="font-bold text-lg block mt-1"></span>
+                            </div>
+                            <div class="ability-score">
+                                <label for="dex">DES</label>
+                                <input type="number" id="dex" name="dex" value="10" class="text-center">
+                                <span id="dex-mod" class="font-bold text-lg block mt-1"></span>
+                            </div>
+                            <div class="ability-score">
+                                <label for="con">CON</label>
+                                <input type="number" id="con" name="con" value="10" class="text-center">
+                                <span id="con-mod" class="font-bold text-lg block mt-1"></span>
+                            </div>
+                            <div class="ability-score">
+                                <label for="int">INT</label>
+                                <input type="number" id="int" name="int" value="10" class="text-center">
+                                <span id="int-mod" class="font-bold text-lg block mt-1"></span>
+                            </div>
+                            <div class="ability-score">
+                                <label for="wis">SAB</label>
+                                <input type="number" id="wis" name="wis" value="10" class="text-center">
+                                <span id="wis-mod" class="font-bold text-lg block mt-1"></span>
+                            </div>
+                            <div class="ability-score">
+                                <label for="cha">CAR</label>
+                                <input type="number" id="cha" name="cha" value="10" class="text-center">
+                                <span id="cha-mod" class="font-bold text-lg block mt-1"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detalhes Adicionais -->
+                    <div class="form-section">
+                        <h3>Detalhes Adicionais</h3>
+                        <div class="space-y-4">
+                             <div>
+                                <label>Testes de Resistência</label>
+                                <div class="flex gap-2">
+                                    <select id="savingThrows-select" class="flex-grow"></select>
+                                    <button type="button" id="add-savingThrow" class="bg-gray-200 hover:bg-gray-300 px-3 rounded-md">Adicionar</button>
+                                </div>
+                                <div id="savingThrows-list" class="mt-2 space-y-2"></div>
+                            </div>
+                            <div>
+                                <label>Perícias</label>
+                                <div class="flex gap-2">
+                                    <select id="skills-select" class="flex-grow"></select>
+                                    <button type="button" id="add-skill" class="bg-gray-200 hover:bg-gray-300 px-3 rounded-md">Adicionar</button>
+                                </div>
+                                <div id="skills-list" class="mt-2 space-y-2"></div>
+                            </div>
+                            
+                            <div>
+                                <label for="damageVulnerabilities">Vulnerabilidades a Dano</label>
+                                <input type="text" id="damageVulnerabilities" name="damageVulnerabilities">
+                                <div id="damageVulnerabilities-presets" class="preset-buttons"></div>
+                            </div>
+                            <div>
+                                <label for="damageResistances">Resistências a Dano</label>
+                                <input type="text" id="damageResistances" name="damageResistances">
+                                <div id="damageResistances-presets" class="preset-buttons"></div>
+                            </div>
+                            <div>
+                                <label for="damageImmunities">Imunidades a Dano</label>
+                                <input type="text" id="damageImmunities" name="damageImmunities">
+                                <div id="damageImmunities-presets" class="preset-buttons"></div>
+                            </div>
+                            <div>
+                                <label for="conditionImmunities">Imunidades a Condição</label>
+                                <input type="text" id="conditionImmunities" name="conditionImmunities">
+                                <div id="conditionImmunities-presets" class="preset-buttons"></div>
+                            </div>
+                            <div>
+                                <label for="senses">Sentidos</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="senses" name="senses" placeholder="Ex: Percepção passiva 15" class="flex-grow">
+                                    <span id="passive-perception-suggestion" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer" title="Clique para adicionar ao campo Sentidos"></span>
+                                </div>
+                                <div id="senses-presets" class="preset-buttons"></div>
+                            </div>
+                            <div>
+                                <label for="languages">Idiomas</label>
+                                <input type="text" id="languages" name="languages" placeholder="Ex: Comum">
+                                <div id="languages-presets" class="preset-buttons"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Habilidades Especiais -->
+                    <div class="form-section">
+                        <h3>Habilidades Especiais</h3>
+                        <div id="special-abilities-list" class="space-y-2"></div>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" data-list-id="special-abilities-list" class="add-from-library-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar da Biblioteca</button>
+                            <button type="button" id="add-special-ability" class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar Nova</button>
+                        </div>
+                    </div>
+
+                    <!-- Ações -->
+                    <div class="form-section">
+                        <h3>Ações</h3>
+                        <div id="actions-list" class="space-y-2"></div>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" data-list-id="actions-list" class="add-from-library-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar da Biblioteca</button>
+                            <button type="button" id="add-action" class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar Nova</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Reações -->
+                    <div class="form-section">
+                        <h3>Reações</h3>
+                        <div id="reactions-list" class="space-y-2"></div>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" data-list-id="reactions-list" class="add-from-library-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar da Biblioteca</button>
+                            <button type="button" id="add-reaction" class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar Nova</button>
+                        </div>
+                    </div>
+
+                    <!-- Ações Lendárias -->
+                    <div class="form-section">
+                        <h3>Ações Lendárias</h3>
+                        <textarea id="legendary-actions-desc" placeholder="Descrição opcional, ex: A criatura pode realizar 3 ações lendárias..." class="mb-2"></textarea>
+                        <div id="legendary-actions-list" class="space-y-2"></div>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" data-list-id="legendary-actions-list" class="add-from-library-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar da Biblioteca</button>
+                            <button type="button" id="add-legendary-action" class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md">Adicionar Nova</button>
+                        </div>
+                    </div>
+
+                    <!-- Notas e Tesouros -->
+                    <div class="form-section">
+                        <h3>Notas e Tesouros</h3>
+                        <textarea id="notes" name="notes" rows="4" placeholder="Adicione notas de roleplay, descrição, tesouros..."></textarea>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Coluna da Pré-visualização e Biblioteca -->
+            <div>
+                <div class="sticky top-8 space-y-6">
+                    <!-- Controles -->
+                    <div class="bg-white p-4 rounded-lg shadow-md flex flex-wrap gap-2 justify-center">
+                        <button id="save-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Salvar Criatura</button>
+                        <button id="new-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Nova Criatura</button>
+                        <button id="export-html-button" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Exportar HTML</button>
+                        <button id="manage-libraries-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Gerenciar Bibliotecas</button>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-md">
+                        <h3 class="text-xl font-bold mb-4 text-center">Importar de PDF</h3>
+                        <div class="flex flex-col items-center gap-2">
+                            <input type="file" id="pdf-upload" accept="application/pdf" class="text-sm">
+                            <button id="analyze-pdf-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400" disabled>Analisar PDF com IA</button>
+                            <div id="pdf-loading-spinner" class="spinner hidden"></div>
+                        </div>
+                    </div>
+
+
+                    <!-- Pré-visualização -->
+                    <div id="preview-container" class="stat-block p-6 rounded-lg">
+                        <h1 id="preview-name">Nome da Criatura</h1>
+                        <p id="preview-meta"><em>Tamanho, tipo, alinhamento</em></p>
+                        <hr class="tapered-rule">
+                        <p><strong>Classe de Armadura</strong> <span id="preview-ac"></span></p>
+                        <p><strong>Pontos de Vida</strong> <span id="preview-hp"></span></p>
+                        <p><strong>Velocidade</strong> <span id="preview-speed"></span></p>
+                        <hr class="tapered-rule">
+                        <div class="grid grid-cols-6 gap-2 text-center my-2">
+                            <div><strong>FOR</strong><br><span id="preview-str">10 (+0)</span></div>
+                            <div><strong>DES</strong><br><span id="preview-dex">10 (+0)</span></div>
+                            <div><strong>CON</strong><br><span id="preview-con">10 (+0)</span></div>
+                            <div><strong>INT</strong><br><span id="preview-int">10 (+0)</span></div>
+                            <div><strong>SAB</strong><br><span id="preview-wis">10 (+0)</span></div>
+                            <div><strong>CAR</strong><br><span id="preview-cha">10 (+0)</span></div>
+                        </div>
+                        <hr class="tapered-rule">
+                        <div id="preview-details"></div>
+                        <div id="preview-special-abilities"></div>
+                        <div id="preview-actions"></div>
+                        <div id="preview-reactions"></div>
+                        <div id="preview-legendary-actions"></div>
+                        <div id="preview-notes"></div>
+                    </div>
+
+                    <!-- Biblioteca -->
+                    <div class="bg-white p-4 rounded-lg shadow-md">
+                        <h3 class="text-xl font-bold mb-4 text-center">Biblioteca de Criaturas</h3>
+                        <div class="mb-4 space-y-2">
+                            <input type="search" id="creature-search" placeholder="Pesquisar por nome..." class="w-full">
+                            <div id="tag-filters" class="flex flex-wrap gap-1"></div>
+                        </div>
+                        <div id="library" class="space-y-2 max-h-64 overflow-y-auto pr-2">
+                            <!-- Criaturas salvas aparecerão aqui -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Gerenciamento de Bibliotecas -->
+    <div id="library-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Gerenciar Bibliotecas</h2>
+                <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button data-library="specialAbilities" class="modal-tab active">Habilidades</button>
+                <button data-library="actions" class="modal-tab">Ações</button>
+                <button data-library="reactions" class="modal-tab">Reações</button>
+                <button data-library="legendaryActions" class="modal-tab">Lendárias</button>
+            </div>
+            <div id="modal-library-list" class="modal-body">
+                <!-- Itens da biblioteca ativa serão inseridos aqui -->
+            </div>
+            <div class="modal-footer mt-4 border-t pt-4">
+                <h3 class="font-bold mb-2">Adicionar Novo Item</h3>
+                <input type="text" id="new-library-item-name" placeholder="Nome do item" class="mb-2">
+                <textarea id="new-library-item-desc" placeholder="Descrição do item" rows="3" class="mb-2"></textarea>
+                <button id="save-new-library-item-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Salvar na Biblioteca</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Módulo de Configuração do Firebase ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dnd-creator-default';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        let db, auth;
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, serverTimestamp, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        async function initializeFirebase() {
+            if (firebaseConfig) {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    onAuthStateChanged(auth, user => {
+                        if (user) {
+                            loadCreaturesFromLibrary();
+                            Object.keys(libraryNames).forEach(loadLibrary);
+                            seedOfficialCreatures();
+                        }
+                    });
+                    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+                    else await signInAnonymously(auth);
+                } catch (e) { console.error("Erro ao inicializar o Firebase:", e); db = null; }
+            } else { console.warn("Configuração do Firebase não encontrada."); db = null; }
+        }
+
+        // --- Estado da Aplicação e Dados ---
+        let currentCreatureId = null;
+        let currentTargetListId = null;
+        let activeLibrary = 'specialAbilities';
+        const libraries = { specialAbilities: [], actions: [], reactions: [], legendaryActions: [] };
+        const libraryNames = {
+            specialAbilities: 'specialAbilitiesLibrary',
+            actions: 'actionsLibrary',
+            reactions: 'reactionsLibrary',
+            legendaryActions: 'legendaryActionsLibrary'
+        };
+        let allCreatures = [];
+        let activeTagFilter = null;
+        const crToXp = { "0": "10", "1/8": "25", "1/4": "50", "1/2": "100", "1": "200", "2": "450", "3": "700", "4": "1100", "5": "1800", "6": "2300", "7": "2900", "8": "3900", "9": "5000", "10": "5900", "11": "7200", "12": "8400", "13": "10000", "14": "11500", "15": "13000", "16": "15000", "17": "18000", "18": "20000", "19": "22000", "20": "25000", "21": "33000", "22": "41000", "23": "50000", "24": "62000", "25": "75000", "26": "90000", "27": "105000", "28": "120000", "29": "135000", "30": "155000" };
+        const proficiencyBonusByCR = { "0": 2, "1/8": 2, "1/4": 2, "1/2": 2, "1": 2, "2": 2, "3": 2, "4": 2, "5": 3, "6": 3, "7": 3, "8": 3, "9": 4, "10": 4, "11": 4, "12": 4, "13": 5, "14": 5, "15": 5, "16": 5, "17": 6, "18": 6, "19": 6, "20": 6, "21": 7, "22": 7, "23": 7, "24": 7, "25": 8, "26": 8, "27": 8, "28": 8, "29": 9, "30": 9 };
+        const damageTypes = ['Ácido', 'Concussão', 'Cortante', 'Elétrico', 'Fogo', 'Força', 'Frio', 'Necrótico', 'Perfurante', 'Psíquico', 'Radiante', 'Trovão', 'Veneno'];
+        const nonMagicalDamage = ['concussão, cortante e perfurante de ataques não-mágicos'];
+        const conditions = ['Agarrado', 'Amedrontado', 'Atordoado', 'Caído', 'Cego', 'Enfeitiçado', 'Envenenado', 'Exaustão', 'Incapacitado', 'Inconsciente', 'Invisível', 'Paralisado', 'Petrificado', 'Surdo'];
+        const senses = ['Visão no escuro', 'Percepção às cegas', 'Sentido sísmico', 'Visão da verdade'];
+        const languages = ['Comum', 'Anão', 'Élfico', 'Gigante', 'Gnômico', 'Goblin', 'Halfling', 'Orc', 'Abissal', 'Celestial', 'Dracônico', 'Infernal', 'Primordial', 'Silvestre', 'Subcomum', 'Telepatia', 'Entende mas não fala'];
+        const speedTypes = ['caminhada', 'voo', 'natação', 'escalada', 'escavação'];
+        const skillToAbilityMap = { 'Acrobacia': 'dex', 'Arcanismo': 'int', 'Atletismo': 'str', 'Atuação': 'cha', 'Enganação': 'cha', 'Furtividade': 'dex', 'História': 'int', 'Intimidação': 'cha', 'Intuição': 'wis', 'Investigação': 'int', 'Lidar com Animais': 'wis', 'Medicina': 'wis', 'Natureza': 'int', 'Percepção': 'wis', 'Persuasão': 'cha', 'Prestidigitação': 'dex', 'Religião': 'int', 'Sobrevivência': 'wis' };
+        const savingThrowToAbilityMap = { 'Força': 'str', 'Destreza': 'dex', 'Constituição': 'con', 'Inteligência': 'int', 'Sabedoria': 'wis', 'Carisma': 'cha' };
+        
+        const officialCreatures = [
+            { name: 'Goblin', size: 'Pequeno', type: 'Humanoide', alignment: 'Neutro e mau', tags: 'goblinóide', ac: '15 (armadura de couro, escudo)', hp: '7 (2d6)', speed: '9 m', str: '8', dex: '14', con: '10', int: '10', wis: '8', cha: '8', cr: '1/4', skills: [{name: 'Furtividade', override: ''}], savingThrows: [], senses: 'Visão no escuro 18 m, Percepção passiva 9', languages: 'Comum, Goblin', specialAbilities: [{name: 'Fuga Ligeira', desc: 'O goblin pode usar a ação de Desengajar ou Esconder-se como uma ação bônus em cada um dos seus turnos.'}], actions: [{name: 'Cimitarra', desc: 'Ataque Corpo a Corpo com Arma: +4 para atingir, alcance 1,5 m, um alvo. Dano: 5 (1d6 + 2) de dano cortante.'}, {name: 'Arco Curto', desc: 'Ataque à Distância com Arma: +4 para atingir, distância 24/96 m, um alvo. Dano: 5 (1d6 + 2) de dano perfurante.'}], reactions: [], legendaryActions: [] },
+            { name: 'Orc', size: 'Médio', type: 'Humanoide', alignment: 'Caótico e mau', tags: 'orc', ac: '13 (gibão de peles)', hp: '15 (2d8 + 6)', speed: '9 m', str: '16', dex: '12', con: '16', int: '7', wis: '11', cha: '10', cr: '1/2', skills: [{name: 'Intimidação', override: ''}], savingThrows: [], senses: 'Visão no escuro 18 m, Percepção passiva 10', languages: 'Comum, Orc', specialAbilities: [{name: 'Agressivo', desc: 'Como uma ação bônus no seu turno, o orc pode mover-se até o seu deslocamento em direção a uma criatura hostil que possa ver.'}], actions: [{name: 'Machado Grande', desc: 'Ataque Corpo a Corpo com Arma: +5 para atingir, alcance 1,5 m, um alvo. Dano: 9 (1d12 + 3) de dano cortante.'}, {name: 'Azagaia', desc: 'Ataque Corpo a Corpo ou à Distância com Arma: +5 para atingir, alcance 1,5 m ou distância 9/36 m, um alvo. Dano: 6 (1d6 + 3) de dano perfurante.'}], reactions: [], legendaryActions: [] },
+            { name: 'Esqueleto', size: 'Médio', type: 'Morto-vivo', alignment: 'Leal e mau', tags: 'morto-vivo', ac: '13 (restos de armadura)', hp: '13 (2d8 + 4)', speed: '9 m', str: '10', dex: '14', con: '15', int: '6', wis: '8', cha: '5', cr: '1/4', damageVulnerabilities: 'Concussão', damageImmunities: 'Veneno', conditionImmunities: 'Exaustão, Envenenado', senses: 'Visão no escuro 18 m, Percepção passiva 9', languages: 'Entende todos os idiomas que conhecia em vida, mas não pode falar', skills: [], savingThrows: [], specialAbilities: [], actions: [{name: 'Espada Curta', desc: 'Ataque Corpo a Corpo com Arma: +4 para atingir, alcance 1,5 m, um alvo. Dano: 5 (1d6 + 2) de dano perfurante.'}], reactions: [], legendaryActions: [] }
+        ];
+
+
+        // --- Funções Utilitárias ---
+        const getModifier = (score) => Math.floor((parseInt(score, 10) - 10) / 2);
+        const formatModifier = (mod) => (mod >= 0 ? `+${mod}` : mod);
+        const getProficiencyBonus = (cr) => proficiencyBonusByCR[cr] || 2;
+
+        function appendToInput(inputId, value) {
+            const input = document.getElementById(inputId);
+            const currentValue = input.value.trim();
+            if (currentValue === '') input.value = value;
+            else if (!currentValue.split(',').map(s => s.trim()).includes(value)) input.value += `, ${value}`;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function createPresetButtons(containerId, presets, targetInputId, specialPresets = []) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            [...presets, ...specialPresets].forEach(preset => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = preset;
+                button.onclick = () => appendToInput(targetInputId, preset);
+                container.appendChild(button);
+            });
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // --- Funções de Renderização e Atualização da UI ---
+        function updateAllCalculatedBonuses() {
+            document.querySelectorAll('.skill-item').forEach(item => {
+                const name = item.dataset.name;
+                const type = item.dataset.type;
+                const overrideInput = item.querySelector('.override-bonus');
+                if (overrideInput.value === '') {
+                    const calculatedBonusSpan = item.querySelector('.calculated-bonus');
+                    const bonus = calculateBonus(name, type);
+                    calculatedBonusSpan.textContent = `(${formatModifier(bonus)})`;
+                }
+            });
+            updatePassivePerception();
+            renderPreview();
+        }
+
+        function updateAbilityModifiers() {
+            ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(ability => {
+                const score = document.getElementById(ability).value || 10;
+                const mod = getModifier(score);
+                document.getElementById(`${ability}-mod`).textContent = formatModifier(mod);
+            });
+            updateAllCalculatedBonuses();
+        }
+
+        function updateXp() {
+            const cr = document.getElementById('cr').value;
+            document.getElementById('xp-display').textContent = `${crToXp[cr] || 'N/A'} XP`;
+            updateAllCalculatedBonuses();
+        }
+        
+        function updatePassivePerception() {
+            const wisScore = document.getElementById('wis').value || 10;
+            const wisMod = getModifier(wisScore);
+            const isProficient = !!document.querySelector('#skills-list .skill-item[data-name="Percepção"]');
+            const proficiency = isProficient ? getProficiencyBonus(document.getElementById('cr').value) : 0;
+            const passivePerception = 10 + wisMod + proficiency;
+            
+            const suggestionEl = document.getElementById('passive-perception-suggestion');
+            suggestionEl.textContent = `Sugestão Passiva: ${passivePerception}`;
+            suggestionEl.onclick = () => {
+                appendToInput('senses', `Percepção passiva ${passivePerception}`);
+            };
+        }
+
+        function renderPreview() {
+            ['name', 'ac', 'hp', 'speed'].forEach(f => {
+                document.getElementById(`preview-${f}`).textContent = document.getElementById(f).value || (f === 'name' ? 'Nome da Criatura' : '');
+            });
+            const size = document.getElementById('size').value || 'Tamanho';
+            const type = document.getElementById('type').value || 'tipo';
+            const alignment = document.getElementById('alignment').value || 'alinhamento';
+            document.getElementById('preview-meta').innerHTML = `<em>${size} ${type}, ${alignment}</em>`;
+
+            ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(a => {
+                const score = document.getElementById(a).value || 10;
+                document.getElementById(`preview-${a}`).textContent = `${score} (${formatModifier(getModifier(score))})`;
+            });
+            
+            const detailsContainer = document.getElementById('preview-details');
+            detailsContainer.innerHTML = '';
+
+            const savesString = buildBonusString('savingThrows-list', 'save');
+            if (savesString) detailsContainer.innerHTML += `<p><strong>Testes de Resistência</strong> ${savesString}</p>`;
+            
+            const skillsString = buildBonusString('skills-list', 'skill');
+            if (skillsString) detailsContainer.innerHTML += `<p><strong>Perícias</strong> ${skillsString}</p>`;
+
+            const detailFields = [
+                { id: 'damageVulnerabilities', label: 'Vulnerabilidades a Dano' },
+                { id: 'damageResistances', label: 'Resistências a Dano' },
+                { id: 'damageImmunities', label: 'Imunidades a Dano' },
+                { id: 'conditionImmunities', label: 'Imunidades a Condição' },
+                { id: 'senses', label: 'Sentidos' },
+                { id: 'languages', label: 'Idiomas' },
+            ];
+            detailFields.forEach(field => {
+                const value = document.getElementById(field.id).value;
+                if (value) detailsContainer.innerHTML += `<p><strong>${field.label}</strong> ${value}</p>`;
+            });
+            const crValue = document.getElementById('cr').value;
+            if (crValue) detailsContainer.innerHTML += `<p><strong>Nível de Desafio</strong> ${crValue} (${crToXp[crValue] || 'N/A'} XP)</p>`;
+
+            renderDynamicListPreview('special-abilities-list', 'preview-special-abilities');
+            renderDynamicListPreview('actions-list', 'preview-actions', 'Ações');
+            renderDynamicListPreview('reactions-list', 'preview-reactions', 'Reações');
+            renderDynamicListPreview('legendary-actions-list', 'preview-legendary-actions', 'Ações Lendárias', 'legendary-actions-desc');
+            
+            const notesValue = document.getElementById('notes').value;
+            const notesContainer = document.getElementById('preview-notes');
+            notesContainer.innerHTML = notesValue ? `<h2>Notas</h2><p>${notesValue.replace(/\n/g, '<br>')}</p>` : '';
+        }
+
+        function buildBonusString(listId, type) {
+            const items = document.querySelectorAll(`#${listId} .skill-item`);
+            if (items.length === 0) return '';
+            return Array.from(items).map(item => {
+                const name = item.dataset.name;
+                const overrideInput = item.querySelector('.override-bonus');
+                const bonus = overrideInput.value !== '' ? parseInt(overrideInput.value) : calculateBonus(name, type);
+                return `${name} ${formatModifier(bonus)}`;
+            }).join(', ');
+        }
+
+        function renderDynamicListPreview(listId, previewId, title, descId) {
+            const listItems = document.querySelectorAll(`#${listId} .dynamic-list-item`);
+            const previewContainer = document.getElementById(previewId);
+            previewContainer.innerHTML = '';
+            if (listItems.length > 0) {
+                if (title) previewContainer.innerHTML += `<h2>${title}</h2>`;
+                const descValue = descId ? document.getElementById(descId).value : null;
+                if(descValue) previewContainer.innerHTML += `<p>${descValue}</p>`;
+                listItems.forEach(item => {
+                    const name = item.querySelector('.item-name').value;
+                    const desc = item.querySelector('.item-desc').value;
+                    if (name || desc) previewContainer.innerHTML += `<p><strong><em>${name}.</em></strong> ${desc}</p>`;
+                });
+            }
+        }
+
+        // --- Funções de Manipulação de Listas Dinâmicas ---
+        function createDynamicListItem(listId, name = '', desc = '') {
+            const list = document.getElementById(listId);
+            const item = document.createElement('div');
+            item.className = 'dynamic-list-item';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'dynamic-list-item-content';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'item-name';
+            nameInput.placeholder = 'Nome da Habilidade';
+            nameInput.value = name;
+            
+            const descTextarea = document.createElement('textarea');
+            descTextarea.className = 'item-desc';
+            descTextarea.placeholder = 'Descrição';
+            descTextarea.rows = 2;
+            descTextarea.value = desc;
+
+            contentDiv.appendChild(nameInput);
+            contentDiv.appendChild(descTextarea);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.textContent = 'X';
+            removeBtn.className = 'bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded-md text-xs self-start';
+            
+            item.appendChild(contentDiv);
+            item.appendChild(removeBtn);
+
+            list.appendChild(item);
+            removeBtn.onclick = () => { item.remove(); renderPreview(); };
+            item.querySelectorAll('input, textarea').forEach(el => el.addEventListener('input', renderPreview));
+        }
+
+        function calculateBonus(name, type) {
+            const map = type === 'skill' ? skillToAbilityMap : savingThrowToAbilityMap;
+            const ability = map[name];
+            const abilityScore = document.getElementById(ability).value || 10;
+            const abilityMod = getModifier(abilityScore);
+            const proficiency = getProficiencyBonus(document.getElementById('cr').value);
+            return abilityMod + proficiency;
+        }
+
+        function addSkillOrSave(type) {
+            const selectId = type === 'skill' ? 'skills-select' : 'savingThrows-select';
+            const listId = type === 'skill' ? 'skills-list' : 'savingThrows-list';
+            const select = document.getElementById(selectId);
+            const name = select.value;
+            if (!name) return;
+
+            const existing = document.querySelector(`#${listId} .skill-item[data-name="${name}"]`);
+            if (existing) return;
+
+            const list = document.getElementById(listId);
+            const item = document.createElement('div');
+            item.className = 'skill-item';
+            item.dataset.name = name;
+            item.dataset.type = type;
+
+            const bonus = calculateBonus(name, type);
+
+            item.innerHTML = `
+                <span class="font-semibold">${name} <span class="calculated-bonus text-gray-500">(${formatModifier(bonus)})</span></span>
+                <input type="number" class="override-bonus text-center" placeholder="${formatModifier(bonus)}">
+                <button type="button" class="remove-skill bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded-md text-xs">X</button>
+            `;
+            list.appendChild(item);
+            item.querySelector('.remove-skill').onclick = () => { item.remove(); renderPreview(); updatePassivePerception(); };
+            item.querySelector('.override-bonus').addEventListener('input', renderPreview);
+        }
+
+        // --- Funções de Manipulação de Dados ---
+        function getCreatureDataFromForm() {
+            const data = {};
+            const form = document.getElementById('creature-form');
+            new FormData(form).forEach((value, key) => data[key] = value);
+            data.notes = document.getElementById('notes').value;
+            data.legendaryActionsDesc = document.getElementById('legendary-actions-desc').value;
+            
+            data.savingThrows = Array.from(document.querySelectorAll('#savingThrows-list .skill-item')).map(item => ({
+                name: item.dataset.name,
+                override: item.querySelector('.override-bonus').value
+            }));
+            data.skills = Array.from(document.querySelectorAll('#skills-list .skill-item')).map(item => ({
+                name: item.dataset.name,
+                override: item.querySelector('.override-bonus').value
+            }));
+
+            ['specialAbilities', 'actions', 'reactions', 'legendaryActions'].forEach(key => {
+                const listId = `${key.replace(/([A-Z])/g, '-$1').toLowerCase()}-list`;
+                data[key] = Array.from(document.querySelectorAll(`#${listId} .dynamic-list-item`)).map(item => ({
+                    name: item.querySelector('.item-name').value,
+                    desc: item.querySelector('.item-desc').value,
+                }));
+            });
+            return data;
+        }
+
+        function loadCreatureDataToForm(data) {
+            resetForm();
+            const form = document.getElementById('creature-form');
+            for (const key in data) {
+                if (form.elements[key]) form.elements[key].value = data[key];
+            }
+            document.getElementById('notes').value = data.notes || '';
+            document.getElementById('legendary-actions-desc').value = data.legendaryActionsDesc || '';
+
+            data.savingThrows?.forEach(s => {
+                document.getElementById('savingThrows-select').value = s.name;
+                addSkillOrSave('save');
+                const item = document.querySelector(`#savingThrows-list .skill-item[data-name="${s.name}"]`);
+                if (item) item.querySelector('.override-bonus').value = s.override;
+            });
+            data.skills?.forEach(s => {
+                document.getElementById('skills-select').value = s.name;
+                addSkillOrSave('skill');
+                const item = document.querySelector(`#skills-list .skill-item[data-name="${s.name}"]`);
+                if (item) item.querySelector('.override-bonus').value = s.override;
+            });
+
+            data.specialAbilities?.forEach(item => createDynamicListItem('special-abilities-list', item.name, item.desc));
+            data.actions?.forEach(item => createDynamicListItem('actions-list', item.name, item.desc));
+            data.reactions?.forEach(item => createDynamicListItem('reactions-list', item.name, item.desc));
+            data.legendaryActions?.forEach(item => createDynamicListItem('legendary-actions-list', item.name, item.desc));
+            renderPreview();
+        }
+
+        function resetForm() {
+            document.getElementById('creature-form').reset();
+            currentCreatureId = null;
+            ['special-abilities-list', 'actions-list', 'reactions-list', 'legendary-actions-list', 'savingThrows-list', 'skills-list'].forEach(id => {
+                document.getElementById(id).innerHTML = '';
+            });
+            document.getElementById('legendary-actions-desc').value = '';
+            document.getElementById('notes').value = '';
+            renderPreview();
+        }
+
+        // --- Funções da Biblioteca (Firestore) ---
+        async function saveCreature() {
+            if (!db) { showToast("Erro: Firebase não está conectado."); return; }
+            const creatureData = getCreatureDataFromForm();
+            if (!creatureData.name) { showToast("O nome da criatura é obrigatório."); return; }
+            try {
+                const collectionRef = collection(db, `artifacts/${appId}/public/data/creatures`);
+                if (currentCreatureId) {
+                    const docRef = doc(db, `artifacts/${appId}/public/data/creatures`, currentCreatureId);
+                    await setDoc(docRef, { ...creatureData, updatedAt: serverTimestamp() });
+                    showToast('Criatura atualizada com sucesso!');
+                } else {
+                    const docRef = await addDoc(collectionRef, { ...creatureData, createdAt: serverTimestamp() });
+                    currentCreatureId = docRef.id;
+                    showToast('Criatura salva com sucesso!');
+                }
+            } catch (error) { console.error("Erro ao salvar criatura: ", error); showToast("Ocorreu um erro ao salvar."); }
+        }
+
+        function loadCreaturesFromLibrary() {
+            if (!db) return;
+            const collectionRef = collection(db, `artifacts/${appId}/public/data/creatures`);
+            onSnapshot(collectionRef, (snapshot) => {
+                allCreatures = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allCreatures.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                renderCreatureLibrary();
+            }, (error) => console.error("Erro no listener do snapshot:", error));
+        }
+        
+        function renderCreatureLibrary() {
+            const libraryContainer = document.getElementById('library');
+            const searchInput = document.getElementById('creature-search').value.toLowerCase();
+            
+            const filteredCreatures = allCreatures.filter(creature => {
+                const nameMatch = (creature.name || '').toLowerCase().includes(searchInput);
+                const tagMatch = !activeTagFilter || (creature.tags || '').split(',').map(t => t.trim()).includes(activeTagFilter);
+                return nameMatch && tagMatch;
+            });
+
+            libraryContainer.innerHTML = filteredCreatures.length === 0 ? '<p class="text-gray-500 text-center">Nenhuma criatura encontrada.</p>' : '';
+            
+            filteredCreatures.forEach(creature => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center bg-gray-100 p-2 rounded';
+                div.innerHTML = `
+                    <span class="font-semibold">${creature.name || 'Sem Nome'}</span>
+                    <div class="flex gap-1">
+                        <button data-id="${creature.id}" class="load-btn text-xs bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded">Carregar</button>
+                        <button data-id="${creature.id}" class="clone-btn text-xs bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-2 rounded">Clonar</button>
+                        <button data-id="${creature.id}" class="delete-btn text-xs bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded">Excluir</button>
+                    </div>`;
+                libraryContainer.appendChild(div);
+            });
+            
+            renderTagFilters();
+        }
+
+        function renderTagFilters() {
+            const tagContainer = document.getElementById('tag-filters');
+            const allTags = new Set();
+            allCreatures.forEach(c => {
+                (c.tags || '').split(',').forEach(tag => {
+                    const t = tag.trim();
+                    if (t) allTags.add(t);
+                });
+            });
+
+            tagContainer.innerHTML = '';
+            Array.from(allTags).sort().forEach(tag => {
+                const button = document.createElement('button');
+                button.textContent = tag;
+                button.className = `tag-filter-btn ${activeTagFilter === tag ? 'active' : ''}`;
+                button.onclick = () => {
+                    if (activeTagFilter === tag) {
+                        activeTagFilter = null;
+                    } else {
+                        activeTagFilter = tag;
+                    }
+                    renderCreatureLibrary();
+                };
+                tagContainer.appendChild(button);
+            });
+        }
+
+
+        async function handleLibraryClick(e) {
+            const target = e.target;
+            const id = target.dataset.id;
+            if (!id || !db) return;
+            const docRef = doc(db, `artifacts/${appId}/public/data/creatures`, id);
+
+            if (target.classList.contains('load-btn') || target.classList.contains('clone-btn')) {
+                try {
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const creatureData = docSnap.data();
+                        loadCreatureDataToForm(creatureData);
+                        
+                        if (target.classList.contains('clone-btn')) {
+                            currentCreatureId = null;
+                            document.getElementById('name').value += ' (Cópia)';
+                            showToast(`'${creatureData.name}' clonado para o editor.`);
+                        } else {
+                            currentCreatureId = id;
+                        }
+                        window.scrollTo(0, 0);
+                    }
+                } catch (err) { console.error("Erro ao carregar/clonar criatura:", err); showToast("Erro ao carregar criatura."); }
+            } else if (target.classList.contains('delete-btn')) {
+                if (await showConfirmationModal('Tem certeza que deseja excluir esta criatura?')) {
+                    try {
+                        await deleteDoc(docRef);
+                        if (currentCreatureId === id) resetForm();
+                        showToast("Criatura excluída.");
+                    } catch (err) { console.error("Erro ao excluir criatura:", err); showToast("Erro ao excluir."); }
+                }
+            }
+        }
+        
+        // --- Funções da Biblioteca de Habilidades ---
+        function openLibraryModal(targetList) {
+            currentTargetListId = targetList;
+            const modal = document.getElementById('library-modal');
+            modal.classList.add('show');
+        }
+
+        function closeLibraryModal() {
+            const modal = document.getElementById('library-modal');
+            modal.classList.remove('show');
+            currentTargetListId = null;
+        }
+
+        function switchLibraryTab(libraryKey) {
+            activeLibrary = libraryKey;
+            document.querySelectorAll('.modal-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.library === libraryKey);
+            });
+            renderLibraryItems();
+        }
+
+        function renderLibraryItems() {
+            const listEl = document.getElementById('modal-library-list');
+            listEl.innerHTML = '';
+            const items = libraries[activeLibrary] || [];
+            if (items.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-500 text-center">Nenhum item nesta biblioteca.</p>';
+                return;
+            }
+            items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'library-item';
+                itemEl.innerHTML = `
+                    <div class="library-item-content">
+                        <strong>${item.name}</strong>
+                        <p>${item.desc}</p>
+                    </div>
+                    <button data-id="${item.id}" class="delete-library-item-btn text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+                `;
+                listEl.appendChild(itemEl);
+
+                itemEl.querySelector('.library-item-content').addEventListener('click', () => {
+                    if (currentTargetListId) {
+                        createDynamicListItem(currentTargetListId, item.name, item.desc);
+                        renderPreview();
+                        closeLibraryModal();
+                    }
+                });
+            });
+        }
+
+        async function saveNewLibraryItem() {
+            if (!db) { showToast("Erro: Firebase não está conectado."); return; }
+            const nameInput = document.getElementById('new-library-item-name');
+            const descInput = document.getElementById('new-library-item-desc');
+            const name = nameInput.value.trim();
+            const desc = descInput.value.trim();
+
+            if (!name) { showToast("O nome do item é obrigatório."); return; }
+
+            const collectionName = libraryNames[activeLibrary];
+            const collectionRef = collection(db, `artifacts/${appId}/public/data/${collectionName}`);
+            try {
+                await addDoc(collectionRef, { name, desc });
+                showToast("Item salvo na biblioteca!");
+                nameInput.value = '';
+                descInput.value = '';
+            } catch (error) {
+                console.error("Erro ao salvar item na biblioteca:", error);
+                showToast("Erro ao salvar item.");
+            }
+        }
+
+        function loadLibrary(libraryKey) {
+            const collectionName = libraryNames[libraryKey];
+            const collectionRef = collection(db, `artifacts/${appId}/public/data/${collectionName}`);
+            onSnapshot(collectionRef, (snapshot) => {
+                libraries[libraryKey] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                libraries[libraryKey].sort((a, b) => a.name.localeCompare(b.name));
+                if (libraryKey === activeLibrary) {
+                    renderLibraryItems();
+                }
+            });
+        }
+
+        async function deleteLibraryItem(itemId) {
+            if (!db) return;
+            const collectionName = libraryNames[activeLibrary];
+            const docRef = doc(db, `artifacts/${appId}/public/data/${collectionName}`, itemId);
+            try {
+                await deleteDoc(docRef);
+                showToast("Item excluído da biblioteca.");
+            } catch (error) {
+                console.error("Erro ao excluir item:", error);
+                showToast("Erro ao excluir item.");
+            }
+        }
+
+        async function seedOfficialCreatures() {
+            if (!db) return;
+            const userId = auth.currentUser?.uid;
+            if (!userId) return;
+
+            const seedStateRef = doc(db, `artifacts/${appId}/public/data/appState`, userId);
+            try {
+                const docSnap = await getDoc(seedStateRef);
+                if (docSnap.exists() && docSnap.data().seeded) {
+                    console.log("Biblioteca já pré-populada.");
+                    return;
+                }
+
+                console.log("Pré-populando a biblioteca com criaturas oficiais...");
+                const batch = writeBatch(db);
+                const creaturesRef = collection(db, `artifacts/${appId}/public/data/creatures`);
+                
+                officialCreatures.forEach(creatureData => {
+                    const newCreatureRef = doc(creaturesRef);
+                    batch.set(newCreatureRef, { ...creatureData, createdAt: serverTimestamp() });
+                });
+                
+                batch.set(seedStateRef, { seeded: true, seededAt: serverTimestamp() });
+
+                await batch.commit();
+                showToast("Biblioteca pré-populada com criaturas oficiais!");
+
+            } catch (error) {
+                console.error("Erro ao pré-popular a biblioteca:", error);
+            }
+        }
+
+        // --- Funções de Importação de PDF com IA ---
+        let pdfTextContent = '';
+
+        async function extractTextFromPdf(file) {
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                fullText += textContent.items.map(item => item.str).join(' ');
+            }
+            return fullText;
+        }
+
+        async function analyzeTextWithAI(text) {
+            const prompt = `Analise o seguinte texto de um bloco de estatísticas de uma criatura de D&D 5e e extraia os dados para um formato JSON. O JSON deve ter a seguinte estrutura: { "name": string, "size": string, "type": string, "alignment": string, "ac": string, "hp": string, "speed": string, "str": string, "dex": string, "con": string, "int": string, "wis": string, "cha": string, "skills": [{ "name": string, "override": string }], "savingThrows": [{ "name": string, "override": string }], "damageVulnerabilities": string, "damageResistances": string, "damageImmunities": string, "conditionImmunities": string, "senses": string, "languages": string, "cr": string, "tags": string, "specialAbilities": [{ "name": string, "desc": string }], "actions": [{ "name": string, "desc": string }], "reactions": [{ "name": string, "desc": string }], "legendaryActions": [{ "name": string, "desc": string }], "legendaryActionsDesc": string }. Para perícias e testes de resistência, extraia apenas o nome (ex: "Furtividade"), não o bônus. O campo 'override' deve ser uma string vazia. Se um campo não for encontrado, omita-o ou deixe-o como uma string vazia. Texto da criatura: "${text}"`;
+
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "name": { "type": "STRING" }, "size": { "type": "STRING" }, "type": { "type": "STRING" }, "alignment": { "type": "STRING" }, "ac": { "type": "STRING" }, "hp": { "type": "STRING" }, "speed": { "type": "STRING" }, "str": { "type": "STRING" }, "dex": { "type": "STRING" }, "con": { "type": "STRING" }, "int": { "type": "STRING" }, "wis": { "type": "STRING" }, "cha": { "type": "STRING" },
+                            "skills": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "override": { "type": "STRING" } } } },
+                            "savingThrows": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "override": { "type": "STRING" } } } },
+                            "damageVulnerabilities": { "type": "STRING" }, "damageResistances": { "type": "STRING" }, "damageImmunities": { "type": "STRING" }, "conditionImmunities": { "type": "STRING" }, "senses": { "type": "STRING" }, "languages": { "type": "STRING" }, "cr": { "type": "STRING" }, "tags": { "type": "STRING" },
+                            "specialAbilities": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "desc": { "type": "STRING" } } } },
+                            "actions": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "desc": { "type": "STRING" } } } },
+                            "reactions": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "desc": { "type": "STRING" } } } },
+                            "legendaryActions": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "desc": { "type": "STRING" } } } },
+                            "legendaryActionsDesc": { "type": "STRING" }
+                        }
+                    }
+                }
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                return JSON.parse(jsonText);
+            } else {
+                throw new Error("Resposta da IA inválida ou vazia.");
+            }
+        }
+
+
+        // --- Função de Exportação ---
+        function exportToHTML() {
+            const previewContent = document.getElementById('preview-container').innerHTML;
+            const creatureName = document.getElementById('name').value || 'criatura';
+            const htmlContent = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${creatureName}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;700&display=swap" rel="stylesheet"><style>body{font-family:'Inter',sans-serif;background-color:#f3f4f6;display:flex;justify-content:center;align-items:start;padding:2rem;min-height:100vh;margin:0}.stat-block{max-width:800px;width:100%;font-family:'Lora',serif;background-color:#fdf9f2;border:2px solid #e0e0e0;box-shadow:0 4px 6px rgba(0,0,0,0.1);padding:1.5rem;border-radius:.5rem}.stat-block h1{font-family:'Inter',sans-serif;font-weight:700;font-size:1.75rem;color:#8a0303;letter-spacing:1px;margin:0}.stat-block h2{font-family:'Inter',sans-serif;font-weight:700;font-size:1.25rem;border-bottom:2px solid #8a0303;padding-bottom:2px;margin-top:1rem;margin-bottom:.5rem;color:#8a0303}.stat-block .tapered-rule{height:5px;background:linear-gradient(to right,#e69a28,#c86a26,#8a0303,#c86a26,#e69a28);border:0;margin:.5rem 0}.stat-block p,.stat-block li{line-height:1.4;margin:.25rem 0}.stat-block strong{font-weight:700;color:#333}.stat-block em{font-style:italic}.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;text-align:center;margin:.5rem 0}</style></head><body><div class="stat-block">${previewContent.replace(/<br\s*\/?>/mg,"")}</div></body></html>`;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${creatureName.toLowerCase().replace(/\s+/g, '-')}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- Modal de Confirmação ---
+        function showConfirmationModal(message) {
+            return new Promise((resolve) => {
+                const modalOverlay = document.createElement('div');
+                modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                modalOverlay.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-xl text-center"><p class="mb-4">${message}</p><button id="confirmBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mr-2">Confirmar</button><button id="cancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">Cancelar</button></div>`;
+                document.body.appendChild(modalOverlay);
+                document.getElementById('confirmBtn').onclick = () => { document.body.removeChild(modalOverlay); resolve(true); };
+                document.getElementById('cancelBtn').onclick = () => { document.body.removeChild(modalOverlay); resolve(false); };
+            });
+        }
+
+        // --- Inicialização e Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+
+            // Popular botões e seleções
+            createPresetButtons('damageVulnerabilities-presets', damageTypes, 'damageVulnerabilities');
+            createPresetButtons('damageResistances-presets', damageTypes, 'damageResistances', nonMagicalDamage);
+            createPresetButtons('damageImmunities-presets', damageTypes, 'damageImmunities', ['Veneno', 'Doença']);
+            createPresetButtons('conditionImmunities-presets', conditions, 'conditionImmunities');
+            createPresetButtons('senses-presets', senses, 'senses');
+            createPresetButtons('languages-presets', languages, 'languages');
+            createPresetButtons('speed-presets', speedTypes, 'speed');
+
+            const skillsSelect = document.getElementById('skills-select');
+            Object.keys(skillToAbilityMap).sort().forEach(skill => skillsSelect.add(new Option(skill, skill)));
+            
+            const savingThrowsSelect = document.getElementById('savingThrows-select');
+            Object.keys(savingThrowToAbilityMap).forEach(save => savingThrowsSelect.add(new Option(save, save)));
+
+            // Listeners
+            document.querySelectorAll('.ability-score input').forEach(input => input.addEventListener('input', updateAbilityModifiers));
+            document.getElementById('cr').addEventListener('input', updateXp);
+            document.getElementById('creature-form').addEventListener('input', renderPreview);
+            
+            document.getElementById('add-special-ability').addEventListener('click', () => createDynamicListItem('special-abilities-list'));
+            document.getElementById('add-action').addEventListener('click', () => createDynamicListItem('actions-list'));
+            document.getElementById('add-reaction').addEventListener('click', () => createDynamicListItem('reactions-list'));
+            document.getElementById('add-legendary-action').addEventListener('click', () => createDynamicListItem('legendary-actions-list'));
+            document.getElementById('add-skill').addEventListener('click', () => {
+                addSkillOrSave('skill');
+                updatePassivePerception();
+                renderPreview();
+            });
+            document.getElementById('add-savingThrow').addEventListener('click', () => {
+                addSkillOrSave('save');
+                renderPreview();
+            });
+
+            document.getElementById('save-button').addEventListener('click', saveCreature);
+            document.getElementById('new-button').addEventListener('click', resetForm);
+            document.getElementById('export-html-button').addEventListener('click', exportToHTML);
+            document.getElementById('library').addEventListener('click', handleLibraryClick);
+            
+            document.getElementById('creature-search').addEventListener('input', renderCreatureLibrary);
+
+            // Listeners para o Modal de Bibliotecas
+            document.getElementById('manage-libraries-btn').addEventListener('click', () => openLibraryModal(null));
+            document.getElementById('modal-close-btn').addEventListener('click', closeLibraryModal);
+            document.querySelector('.modal-overlay').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) closeLibraryModal();
+            });
+            document.querySelectorAll('.modal-tab').forEach(tab => {
+                tab.addEventListener('click', () => switchLibraryTab(tab.dataset.library));
+            });
+            document.getElementById('save-new-library-item-btn').addEventListener('click', saveNewLibraryItem);
+            document.getElementById('modal-library-list').addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-library-item-btn')) {
+                    deleteLibraryItem(e.target.dataset.id);
+                }
+            });
+            document.querySelectorAll('.add-from-library-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const listId = e.target.dataset.listId;
+                    const libraryKey = {
+                        'special-abilities-list': 'specialAbilities',
+                        'actions-list': 'actions',
+                        'reactions-list': 'reactions',
+                        'legendary-actions-list': 'legendaryActions'
+                    }[listId];
+                    switchLibraryTab(libraryKey);
+                    openLibraryModal(listId);
+                });
+            });
+
+            // NOVO: Listeners para importação de PDF
+            const pdfUpload = document.getElementById('pdf-upload');
+            const analyzePdfBtn = document.getElementById('analyze-pdf-btn');
+            const spinner = document.getElementById('pdf-loading-spinner');
+
+            pdfUpload.addEventListener('change', (e) => {
+                analyzePdfBtn.disabled = !e.target.files.length;
+            });
+
+            analyzePdfBtn.addEventListener('click', async () => {
+                const file = pdfUpload.files[0];
+                if (!file) return;
+
+                spinner.classList.remove('hidden');
+                analyzePdfBtn.disabled = true;
+
+                try {
+                    const text = await extractTextFromPdf(file);
+                    const creatureData = await analyzeTextWithAI(text);
+                    loadCreatureDataToForm(creatureData);
+                    showToast("Criatura importada do PDF com sucesso!");
+                } catch (error) {
+                    console.error("Erro ao analisar PDF:", error);
+                    showToast("Falha ao analisar o PDF. Verifique o console para detalhes.");
+                } finally {
+                    spinner.classList.add('hidden');
+                    analyzePdfBtn.disabled = false;
+                }
+            });
+
+
+            resetForm();
+        });
+    </script>
+</body>
+</html>
