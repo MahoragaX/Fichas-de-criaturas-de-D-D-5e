@@ -476,9 +476,15 @@
                     </div>
                     
                     <div class="bg-white p-4 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4 text-center">Importar de PDF</h3>
+                        <h3 class="text-xl font-bold mb-4 text-center">Importar de PDF com IA</h3>
                         <div class="flex flex-col items-center gap-2">
-                            <input type="file" id="pdf-upload" accept="application/pdf" class="text-sm">
+                            <!-- NOVO: Campo para a chave de API -->
+                            <div class="w-full">
+                                <label for="api-key-input" class="text-sm font-medium">Sua Chave de API Google AI</label>
+                                <input type="password" id="api-key-input" placeholder="Cole a sua chave aqui">
+                                <p class="text-xs text-gray-500 mt-1">Necessário para a análise de PDF. <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">Obtenha uma chave aqui.</a></p>
+                            </div>
+                            <input type="file" id="pdf-upload" accept="application/pdf" class="text-sm w-full">
                             <button id="analyze-pdf-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400" disabled>Analisar PDF com IA</button>
                             <div id="pdf-loading-spinner" class="spinner hidden"></div>
                         </div>
@@ -1164,6 +1170,11 @@
         }
 
         async function analyzeTextWithAI(text) {
+            const apiKey = document.getElementById('api-key-input').value;
+            if (!apiKey) {
+                throw new Error("A Chave de API da Google AI é necessária.");
+            }
+
             const prompt = `Analise o seguinte texto de um bloco de estatísticas de uma criatura de D&D 5e e extraia os dados para um formato JSON. O JSON deve ter a seguinte estrutura: { "name": string, "size": string, "type": string, "alignment": string, "ac": string, "hp": string, "speed": string, "str": string, "dex": string, "con": string, "int": string, "wis": string, "cha": string, "skills": [{ "name": string, "override": string }], "savingThrows": [{ "name": string, "override": string }], "damageVulnerabilities": string, "damageResistances": string, "damageImmunities": string, "conditionImmunities": string, "senses": string, "languages": string, "cr": string, "tags": string, "specialAbilities": [{ "name": string, "desc": string }], "actions": [{ "name": string, "desc": string }], "reactions": [{ "name": string, "desc": string }], "legendaryActions": [{ "name": string, "desc": string }], "legendaryActionsDesc": string }. Para perícias e testes de resistência, extraia apenas o nome (ex: "Furtividade"), não o bônus. O campo 'override' deve ser uma string vazia. Se um campo não for encontrado, omita-o ou deixe-o como uma string vazia. Texto da criatura: "${text}"`;
 
             let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
@@ -1187,7 +1198,7 @@
                     }
                 }
             };
-            const apiKey = "";
+            
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             
             const response = await fetch(apiUrl, {
@@ -1327,6 +1338,13 @@
             const pdfUpload = document.getElementById('pdf-upload');
             const analyzePdfBtn = document.getElementById('analyze-pdf-btn');
             const spinner = document.getElementById('pdf-loading-spinner');
+            const apiKeyInput = document.getElementById('api-key-input');
+
+            // Salvar/Carregar chave de API do localStorage
+            apiKeyInput.value = localStorage.getItem('googleApiKey') || '';
+            apiKeyInput.addEventListener('input', () => {
+                localStorage.setItem('googleApiKey', apiKeyInput.value);
+            });
 
             pdfUpload.addEventListener('change', (e) => {
                 analyzePdfBtn.disabled = !e.target.files.length;
