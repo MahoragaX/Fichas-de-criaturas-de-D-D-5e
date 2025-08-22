@@ -812,11 +812,8 @@
             return abilityMod + proficiency;
         }
 
-        function addSkillOrSave(type) {
-            const selectId = type === 'skill' ? 'skills-select' : 'savingThrows-select';
+        function addSkillOrSave(type, name, override = '') {
             const listId = type === 'skill' ? 'skills-list' : 'savingThrows-list';
-            const select = document.getElementById(selectId);
-            const name = select.value;
             if (!name) return;
 
             const existing = document.querySelector(`#${listId} .skill-item[data-name="${name}"]`);
@@ -832,7 +829,7 @@
 
             item.innerHTML = `
                 <span class="font-semibold">${name} <span class="calculated-bonus text-gray-500">(${formatModifier(bonus)})</span></span>
-                <input type="number" class="override-bonus text-center" placeholder="${formatModifier(bonus)}">
+                <input type="number" class="override-bonus text-center" placeholder="${formatModifier(bonus)}" value="${override}">
                 <button type="button" class="remove-skill bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded-md text-xs">X</button>
             `;
             list.appendChild(item);
@@ -871,23 +868,15 @@
             resetForm();
             const form = document.getElementById('creature-form');
             for (const key in data) {
-                if (form.elements[key]) form.elements[key].value = data[key];
+                if (form.elements[key] && typeof data[key] === 'string') {
+                    form.elements[key].value = data[key];
+                }
             }
             document.getElementById('notes').value = data.notes || '';
             document.getElementById('legendary-actions-desc').value = data.legendaryActionsDesc || '';
 
-            data.savingThrows?.forEach(s => {
-                document.getElementById('savingThrows-select').value = s.name;
-                addSkillOrSave('save');
-                const item = document.querySelector(`#savingThrows-list .skill-item[data-name="${s.name}"]`);
-                if (item) item.querySelector('.override-bonus').value = s.override;
-            });
-            data.skills?.forEach(s => {
-                document.getElementById('skills-select').value = s.name;
-                addSkillOrSave('skill');
-                const item = document.querySelector(`#skills-list .skill-item[data-name="${s.name}"]`);
-                if (item) item.querySelector('.override-bonus').value = s.override;
-            });
+            data.savingThrows?.forEach(s => addSkillOrSave('save', s.name, s.override));
+            data.skills?.forEach(s => addSkillOrSave('skill', s.name, s.override));
 
             data.specialAbilities?.forEach(item => createDynamicListItem('special-abilities-list', item.name, item.desc));
             data.actions?.forEach(item => createDynamicListItem('actions-list', item.name, item.desc));
@@ -1200,17 +1189,35 @@
             };
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error("API Error Response:", errorBody);
+                throw new Error(`A API retornou um erro: ${response.status} ${response.statusText}`);
+            }
+
             const result = await response.json();
-            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+
+            if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
                 const jsonText = result.candidates[0].content.parts[0].text;
-                return JSON.parse(jsonText);
+                try {
+                    return JSON.parse(jsonText);
+                } catch (e) {
+                    console.error("Erro ao analisar o JSON da IA:", jsonText);
+                    throw new Error("A IA retornou um JSON malformado.");
+                }
             } else {
-                throw new Error("Resposta da IA inválida ou vazia.");
+                console.error("Resposta da IA inesperada:", result);
+                if (result.error) {
+                    throw new Error(`Erro da API: ${result.error.message}`);
+                }
+                throw new Error("A resposta da IA não continha os dados esperados.");
             }
         }
 
@@ -1270,12 +1277,14 @@
             document.getElementById('add-reaction').addEventListener('click', () => createDynamicListItem('reactions-list'));
             document.getElementById('add-legendary-action').addEventListener('click', () => createDynamicListItem('legendary-actions-list'));
             document.getElementById('add-skill').addEventListener('click', () => {
-                addSkillOrSave('skill');
+                const select = document.getElementById('skills-select');
+                addSkillOrSave('skill', select.value);
                 updatePassivePerception();
                 renderPreview();
             });
             document.getElementById('add-savingThrow').addEventListener('click', () => {
-                addSkillOrSave('save');
+                const select = document.getElementById('savingThrows-select');
+                addSkillOrSave('save', select.value);
                 renderPreview();
             });
 
@@ -1315,7 +1324,6 @@
                 });
             });
 
-            // NOVO: Listeners para importação de PDF
             const pdfUpload = document.getElementById('pdf-upload');
             const analyzePdfBtn = document.getElementById('analyze-pdf-btn');
             const spinner = document.getElementById('pdf-loading-spinner');
@@ -1338,7 +1346,7 @@
                     showToast("Criatura importada do PDF com sucesso!");
                 } catch (error) {
                     console.error("Erro ao analisar PDF:", error);
-                    showToast("Falha ao analisar o PDF. Verifique o console para detalhes.");
+                    showToast(`Falha ao analisar: ${error.message}`);
                 } finally {
                     spinner.classList.add('hidden');
                     analyzePdfBtn.disabled = false;
