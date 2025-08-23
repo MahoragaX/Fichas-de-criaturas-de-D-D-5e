@@ -478,7 +478,6 @@
                     <div class="bg-white p-4 rounded-lg shadow-md">
                         <h3 class="text-xl font-bold mb-4 text-center">Importar de PDF com IA</h3>
                         <div class="flex flex-col items-center gap-2">
-                            <!-- NOVO: Campo para a chave de API -->
                             <div class="w-full">
                                 <label for="api-key-input" class="text-sm font-medium">Sua Chave de API Google AI</label>
                                 <input type="password" id="api-key-input" placeholder="Cole a sua chave aqui">
@@ -903,22 +902,39 @@
         }
 
         // --- Funções da Biblioteca (Firestore) ---
-        async function saveCreature() {
-            if (!db) { showToast("Erro: Firebase não está conectado."); return; }
-            const creatureData = getCreatureDataFromForm();
-            if (!creatureData.name) { showToast("O nome da criatura é obrigatório."); return; }
+        async function saveCreature(creatureData, isFromPdf = false) {
+            if (!db) { 
+                if (!isFromPdf) showToast("Erro: Firebase não está conectado."); 
+                return null;
+            }
+            
+            const dataToSave = creatureData || getCreatureDataFromForm();
+
+            if (!dataToSave.name) { 
+                if (!isFromPdf) showToast("O nome da criatura é obrigatório.");
+                return null;
+            }
             try {
                 const collectionRef = collection(db, `artifacts/${appId}/public/data/creatures`);
-                if (currentCreatureId) {
+                
+                if (currentCreatureId && !isFromPdf) {
                     const docRef = doc(db, `artifacts/${appId}/public/data/creatures`, currentCreatureId);
-                    await setDoc(docRef, { ...creatureData, updatedAt: serverTimestamp() });
-                    showToast('Criatura atualizada com sucesso!');
+                    await setDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() });
+                    if (!isFromPdf) showToast('Criatura atualizada com sucesso!');
+                    return currentCreatureId;
                 } else {
-                    const docRef = await addDoc(collectionRef, { ...creatureData, createdAt: serverTimestamp() });
-                    currentCreatureId = docRef.id;
-                    showToast('Criatura salva com sucesso!');
+                    const docRef = await addDoc(collectionRef, { ...dataToSave, createdAt: serverTimestamp() });
+                    if (!isFromPdf) {
+                        currentCreatureId = docRef.id;
+                        showToast('Criatura salva com sucesso!');
+                    }
+                    return docRef.id;
                 }
-            } catch (error) { console.error("Erro ao salvar criatura: ", error); showToast("Ocorreu um erro ao salvar."); }
+            } catch (error) { 
+                console.error("Erro ao salvar criatura: ", error); 
+                if (!isFromPdf) showToast("Ocorreu um erro ao salvar.");
+                return null;
+            }
         }
 
         function loadCreaturesFromLibrary() {
@@ -1299,7 +1315,7 @@
                 renderPreview();
             });
 
-            document.getElementById('save-button').addEventListener('click', saveCreature);
+            document.getElementById('save-button').addEventListener('click', () => saveCreature());
             document.getElementById('new-button').addEventListener('click', resetForm);
             document.getElementById('export-html-button').addEventListener('click', exportToHTML);
             document.getElementById('library').addEventListener('click', handleLibraryClick);
@@ -1360,8 +1376,18 @@
                 try {
                     const text = await extractTextFromPdf(file);
                     const creatureData = await analyzeTextWithAI(text);
-                    loadCreatureDataToForm(creatureData);
-                    showToast("Criatura importada do PDF com sucesso!");
+                    
+                    // Salva a criatura na biblioteca e depois carrega no formulário
+                    const newId = await saveCreature(creatureData, true);
+                    if (newId) {
+                        currentCreatureId = newId;
+                        loadCreatureDataToForm(creatureData);
+                        showToast("Criatura importada e salva na biblioteca!");
+                    } else {
+                        showToast("Criatura analisada, mas falhou ao salvar na biblioteca.");
+                        loadCreatureDataToForm(creatureData); // Carrega mesmo assim
+                    }
+
                 } catch (error) {
                     console.error("Erro ao analisar PDF:", error);
                     showToast(`Falha ao analisar: ${error.message}`);
